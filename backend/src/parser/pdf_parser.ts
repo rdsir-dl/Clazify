@@ -1,5 +1,16 @@
 // @ts-ignore
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import path from 'path';
+import { pathToFileURL } from 'url';
+
+// @ts-ignore
+const workerPath = path.resolve(process.cwd(), 'node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs');
+// @ts-ignore
+if (pdfjsLib.GlobalWorkerOptions) {
+  // @ts-ignore
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).toString();
+}
+
 
 export interface TextBounds {
   left: number;
