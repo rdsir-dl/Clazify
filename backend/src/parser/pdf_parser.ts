@@ -2,10 +2,28 @@
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import path from 'path';
 import { pathToFileURL } from 'url';
+import fs from 'fs';
 
 // @ts-ignore
 if (pdfjsLib && pdfjsLib.GlobalWorkerOptions) {
-  const workerPath = path.resolve(process.cwd(), 'node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs');
+  let workerPath = '';
+  const candidatePaths = [
+    path.resolve(__dirname, '../../node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'),
+    path.resolve(process.cwd(), 'backend/node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'),
+    path.resolve(process.cwd(), 'node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'),
+  ];
+
+  for (const p of candidatePaths) {
+    if (fs.existsSync(p)) {
+      workerPath = p;
+      break;
+    }
+  }
+
+  if (!workerPath) {
+    workerPath = candidatePaths[0]; // fallback
+  }
+
   pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).toString();
 }
 

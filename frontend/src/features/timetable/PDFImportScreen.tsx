@@ -71,7 +71,12 @@ export default function PDFImportScreen({ navigation }: Props) {
       }
     } catch (err: any) {
       console.error(err);
-      setErrorMsg(err.message || 'Connection failed. Ensure backend server is running.');
+      let msg = err.message || 'Connection failed. Ensure backend server is running.';
+      if (err.response && err.response.data) {
+        const data = err.response.data;
+        msg = `${data.error || 'Server Error'}: ${data.details || JSON.stringify(data)}`;
+      }
+      setErrorMsg(msg);
     }
   };
 
