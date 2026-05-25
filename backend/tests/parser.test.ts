@@ -23,7 +23,7 @@ describe('PdfParser Unit Tests (Proximity & Heuristics)', () => {
     // Y-up: 700 is near the top of the page. Y-down: 800 - (700 + 10) = 90.
     // Y-up: 600 is lower. Y-down: 800 - (600 + 10) = 190.
     const mockItems = [
-      createMockItem('World', 150, 700, 50, 10),
+      createMockItem('World', 140, 700, 50, 10),
       createMockItem('Hello', 80, 700, 50, 10),
       createMockItem('Line 2', 80, 600, 60, 10),
     ];
@@ -34,7 +34,7 @@ describe('PdfParser Unit Tests (Proximity & Heuristics)', () => {
     // Hello should be before World due to left-to-right sorting in the same line
     expect(lines[0].text).toBe('Hello World');
     expect(lines[0].bounds.left).toBe(80);
-    expect(lines[0].bounds.right).toBe(200); // 150 + 50
+    expect(lines[0].bounds.right).toBe(190); // 140 + 50
     expect(lines[0].bounds.top).toBe(90); // 800 - (700 + 10)
 
     expect(lines[1].text).toBe('Line 2');

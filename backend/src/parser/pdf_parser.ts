@@ -132,103 +132,97 @@ export class PdfParser {
                    !text.includes('Teacher') &&
                    !text.includes('Timetable generated') &&
                    !text.includes('School of') &&
+                   !text.includes('aSc Timetables') &&
                    !/^\d+$/.test(text); // Exclude lecture numbers
           });
 
-          // Group content by cell (same day + overlapping time column)
-          const cellGroups: { [key: string]: TextLine[] } = {};
-          let lastAssignedKey: string | null = null;
+          // Sort time headers left-to-right for column indexes
+          const timeHeadersSorted = [...timeHeaders].sort((a, b) => a.bounds.left - b.bounds.left);
+
+          const dayGrids: { [dayText: string]: TextLine[][] } = {};
+          for (const day of dayHeaders) {
+            dayGrids[day.text] = Array.from({ length: timeHeadersSorted.length }, () => []);
+          }
 
           for (const line of contentLines) {
-            // Find nearest day header (by Y distance)
+            // Find nearest day using adjusted Y to prevent bleed into next day
+            const adjustedY = line.bounds.top - 15;
             let nearestDay: TextLine | null = null;
             let minDayDist = Infinity;
             for (const day of dayHeaders) {
-              const dist = Math.abs(line.bounds.top - day.bounds.top);
+              const dist = Math.abs(adjustedY - day.bounds.top);
               if (dist < minDayDist) {
                 minDayDist = dist;
                 nearestDay = day;
               }
             }
+            if (!nearestDay) continue;
 
-            // Find nearest time header (by X distance to line's LEFT edge)
-            let nearestTime: TextLine | null = null;
-            let minTimeDist = Infinity;
-            for (const time of timeHeaders) {
-              const dist = Math.abs(line.bounds.left - time.bounds.left);
-              if (dist < minTimeDist) {
-                minTimeDist = dist;
-                nearestTime = time;
+            // Find closest column index
+            let closestColIdx = 0;
+            let minXDist = Infinity;
+            for (let colIdx = 0; colIdx < timeHeadersSorted.length; colIdx++) {
+              const header = timeHeadersSorted[colIdx];
+              const headerCenter = header.bounds.left + header.bounds.width / 2;
+              const dist = Math.abs(line.bounds.left - headerCenter);
+              if (dist < minXDist) {
+                minXDist = dist;
+                closestColIdx = colIdx;
               }
             }
 
-            let key: string | null = null;
-            if (nearestDay && nearestTime) {
-              key = `${nearestDay.text}_${nearestTime.text}`;
-            }
-
-            // Fix for "Group" lines: Associate with previous batch/subject if closely following
-            if (line.text.trim().startsWith('Group') && lastAssignedKey !== null) {
-              key = lastAssignedKey;
-            }
-
-            if (key) {
-              if (!cellGroups[key]) {
-                cellGroups[key] = [];
-              }
-              cellGroups[key].push(line);
-              lastAssignedKey = key;
-            }
+            dayGrids[nearestDay.text][closestColIdx].push(line);
           }
 
-          // Process each cell group
-          for (const [key, cellLines] of Object.entries(cellGroups)) {
-            const parts = key.split('_');
-            const dayText = parts[0];
-            const timeText = parts[1];
+          for (const dayText of Object.keys(dayGrids)) {
+            const columns = dayGrids[dayText];
+            
+            for (let colIdx = 0; colIdx < columns.length; colIdx++) {
+              const cellLines = columns[colIdx];
+              if (cellLines.length === 0) continue;
 
-            // Sort lines by Y position (top to bottom)
-            cellLines.sort((a, b) => a.bounds.top - b.bounds.top);
+              cellLines.sort((a, b) => a.bounds.top - b.bounds.top);
+              let cellText = cellLines.map(l => l.text.trim()).join('\n');
 
-            // Combine cell text
-            const cellText = cellLines.map(l => l.text.trim()).join('\n');
+              let parsed = this.parseCellContent(cellText);
 
-            // Parse cell content
-            const parsed = this.parseCellContent(cellText);
+              if (parsed.subject || parsed.batch) {
+                let room = parsed.room;
+                let isMergedCell = false;
 
-            if (parsed.subject || parsed.batch) {
-              const timeRange = this.parseTimeRange(timeText);
-              if (timeRange) {
-                // Detect merged cells by checking content span
-                const contentRightEdge = Math.max(...cellLines.map(l => l.bounds.right));
+                // Merge next cell if it contains a room name only (no subject/batch)
+                if (!room && colIdx + 1 < columns.length) {
+                  const nextCellLines = columns[colIdx + 1];
+                  if (nextCellLines.length > 0) {
+                    nextCellLines.sort((a, b) => a.bounds.top - b.bounds.top);
+                    const nextCellText = nextCellLines.map(l => l.text.trim()).join('\n');
+                    const nextParsed = this.parseCellContent(nextCellText);
 
-                // Find current time header index
-                const currentTimeHeader = timeHeaders.find(h => h.text === timeText)!;
-                const currentTimeIdx = timeHeaders.indexOf(currentTimeHeader);
+                    if (nextParsed.room && !nextParsed.subject && !nextParsed.batch) {
+                      room = nextParsed.room;
+                      isMergedCell = true;
+                      columns[colIdx + 1] = []; // clear next column
+                    }
+                  }
+                }
 
-                // Get next column position
-                const currentRight = currentTimeHeader.bounds.right;
-                const nextColumnLeft = (currentTimeIdx + 1 < timeHeaders.length)
-                  ? timeHeaders[currentTimeIdx + 1].bounds.left
-                  : currentRight + 100;
+                const timeHeader = timeHeadersSorted[colIdx];
+                const timeRange = this.parseTimeRange(timeHeader.text);
 
-                // Merged if content extends significantly into next column
-                const columnGap = nextColumnLeft - currentRight;
-                const isMergedCell = contentRightEdge > (currentRight + columnGap * 0.5);
-                const durationMinutes = isMergedCell ? 100 : 50;
+                if (timeRange) {
+                  const durationMinutes = isMergedCell ? 100 : 50;
+                  const end = this.addMinutes(timeRange.start, durationMinutes);
 
-                // Calculate end time
-                const end = this.addMinutes(timeRange.start, durationMinutes);
-
-                entries.push({
-                  day: this.normalizeDay(dayText),
-                  startTime: this.formatTime(timeRange.start),
-                  endTime: this.formatTime(end),
-                  subject: parsed.subject,
-                  room: parsed.room,
-                  batch: parsed.batch,
-                  group: parsed.group,
-                });
+                  entries.push({
+                    day: this.normalizeDay(dayText),
+                    startTime: this.formatTime(timeRange.start),
+                    endTime: this.formatTime(end),
+                    subject: parsed.subject,
+                    room: room,
+                    batch: parsed.batch,
+                    group: parsed.group,
+                  });
+                }
               }
             }
           }
@@ -268,11 +262,25 @@ export class PdfParser {
       const bottom = top + height;
       const yCenter = top + height / 2;
 
-      // Find an existing line close to this Y center
-      let foundLine = linesMap.find(line => Math.abs(line.yCenter - yCenter) < tolerance);
+      // Find an existing line close to this Y center AND close horizontally
+      let foundLine = linesMap.find(line => {
+        const yMatch = Math.abs(line.yCenter - yCenter) < tolerance;
+        if (!yMatch) return false;
+
+        const lineLeft = Math.min(...line.items.map(i => i.left));
+        const lineRight = Math.max(...line.items.map(i => i.right));
+
+        // Horizontal proximity: gap less than 15 pixels
+        const xClose = (left >= lineLeft - 15 && left <= lineRight + 15) ||
+                       (right >= lineLeft - 15 && right <= lineRight + 15) ||
+                       (left <= lineLeft && right >= lineRight); // overlapping
+        return xClose;
+      });
 
       if (foundLine) {
         foundLine.items.push({ item, left, top, right, bottom, width, height });
+        // Recalculate yCenter to be the average of all items in the line
+        foundLine.yCenter = foundLine.items.reduce((acc, i) => acc + i.top + i.height / 2, 0) / foundLine.items.length;
       } else {
         linesMap.push({
           yCenter,
