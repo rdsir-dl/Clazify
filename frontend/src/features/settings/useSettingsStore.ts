@@ -18,7 +18,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     leadTimeConsecutive: 5,
     autoStopSeconds: 30,
     batteryOptimizationIgnored: false,
-    backendUrl: 'http://10.0.2.2:3000',
+    backendUrl: 'https://clazify.netlify.app',
   },
   loading: false,
 

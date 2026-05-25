@@ -30,7 +30,7 @@ export default function SettingsScreen({ navigation }: Props) {
   const [leadTimeNormal, setLeadTimeNormal] = useState<number>(10);
   const [leadTimeConsecutive, setLeadTimeConsecutive] = useState<number>(5);
   const [autoStopSeconds, setAutoStopSeconds] = useState<number>(30);
-  const [backendUrl, setBackendUrl] = useState<string>('http://10.0.2.2:3000');
+  const [backendUrl, setBackendUrl] = useState<string>('https://clazify.netlify.app');
 
   useEffect(() => {
     const load = async () => {
@@ -40,7 +40,7 @@ export default function SettingsScreen({ navigation }: Props) {
       setLeadTimeNormal(s.leadTimeNormal);
       setLeadTimeConsecutive(s.leadTimeConsecutive);
       setAutoStopSeconds(s.autoStopSeconds);
-      setBackendUrl(s.backendUrl || 'http://10.0.2.2:3000');
+      setBackendUrl(s.backendUrl || 'https://clazify.netlify.app');
     };
     load();
   }, []);
@@ -129,7 +129,7 @@ export default function SettingsScreen({ navigation }: Props) {
           <Text style={styles.fieldLabel}>Backend Server URL</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="e.g. http://10.0.2.2:3000"
+            placeholder="e.g. https://clazify.netlify.app"
             placeholderTextColor={Theme.colors.textMuted}
             value={backendUrl}
             onChangeText={setBackendUrl}
@@ -137,7 +137,7 @@ export default function SettingsScreen({ navigation }: Props) {
             autoCorrect={false}
           />
           <Text style={styles.tipText}>
-            Use http://10.0.2.2:3000 for emulator. For physical device, run 'adb reverse tcp:3000 tcp:3000' and use http://localhost:3000, or enter your PC's local Wi-Fi IP (e.g., http://192.168.1.10:3000).
+            Defaults to production URL: https://clazify.netlify.app. For local development or debugging, you can change this to http://10.0.2.2:3000 (emulator) or your local host IP.
           </Text>
         </View>
 

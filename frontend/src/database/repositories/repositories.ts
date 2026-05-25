@@ -157,7 +157,7 @@ export class SettingsRepository {
         leadTimeConsecutive: row.lead_time_consecutive,
         autoStopSeconds: row.auto_stop_seconds,
         batteryOptimizationIgnored: row.battery_optimization_ignored === 1,
-        backendUrl: row.backend_url || 'http://10.0.2.2:3000',
+        backendUrl: row.backend_url || 'https://clazify.netlify.app',
         lastSyncAt: row.last_sync_at || undefined,
       };
     }
@@ -167,7 +167,7 @@ export class SettingsRepository {
       leadTimeConsecutive: 5,
       autoStopSeconds: 30,
       batteryOptimizationIgnored: false,
-      backendUrl: 'http://10.0.2.2:3000',
+      backendUrl: 'https://clazify.netlify.app',
     };
   }
 

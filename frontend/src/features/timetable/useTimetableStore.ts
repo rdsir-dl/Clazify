@@ -63,7 +63,7 @@ export const useTimetableStore = create<TimetableState>((set, get) => ({
     try {
       const settings = useSettingsStore.getState().settings;
       const trainerName = settings.trainerName;
-      const backendUrl = settings.backendUrl || 'http://10.0.2.2:3000';
+      const backendUrl = settings.backendUrl || 'https://clazify.netlify.app';
       if (!trainerName) {
         throw new Error('Trainer name is required in settings before uploading.');
       }

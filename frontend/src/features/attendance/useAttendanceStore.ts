@@ -30,7 +30,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
 
   fetchStudentStrength: async (batch, group, subject) => {
     try {
-      const backendUrl = useSettingsStore.getState().settings.backendUrl || 'http://10.0.2.2:3000';
+      const backendUrl = useSettingsStore.getState().settings.backendUrl || 'https://clazify.netlify.app';
       const response = await axios.get(`${backendUrl}/api/v1/student-strength`, {
         params: { batch, group, subject },
       });

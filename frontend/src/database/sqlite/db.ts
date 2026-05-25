@@ -63,12 +63,12 @@ export async function initDatabase(): Promise<void> {
       auto_stop_seconds INTEGER DEFAULT 30,
       battery_optimization_ignored INTEGER DEFAULT 0,
       last_sync_at TEXT,
-      backend_url TEXT DEFAULT 'http://10.0.2.2:3000'
+      backend_url TEXT DEFAULT 'https://clazify.netlify.app'
     );
   `);
   
   try {
-    await db.executeSql("ALTER TABLE app_settings ADD COLUMN backend_url TEXT DEFAULT 'http://10.0.2.2:3000';");
+    await db.executeSql("ALTER TABLE app_settings ADD COLUMN backend_url TEXT DEFAULT 'https://clazify.netlify.app';");
   } catch (e) {
     // Column might already exist, ignore error
   }
@@ -78,7 +78,7 @@ export async function initDatabase(): Promise<void> {
   if (settingsCountResult[0].rows.item(0).count === 0) {
     await db.executeSql(`
       INSERT INTO app_settings (id, trainer_name, lead_time_normal, lead_time_consecutive, auto_stop_seconds, battery_optimization_ignored, backend_url)
-      VALUES (1, '', 10, 5, 30, 0, 'http://10.0.2.2:3000');
+      VALUES (1, '', 10, 5, 30, 0, 'https://clazify.netlify.app');
     `);
   }
 
