@@ -4,15 +4,15 @@ import {
   Text,
   View,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   TextInput,
   ScrollView,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../app/navigation/RootNavigator';
-import { Theme } from '../../app/theme/theme';
+import { DarkThemeColors, LightThemeColors } from '../../app/theme/theme';
 import { useSettingsStore } from './useSettingsStore';
 import { useTimetableStore } from '../timetable/useTimetableStore';
 
@@ -50,10 +50,6 @@ export default function SettingsScreen({ navigation }: Props) {
       Alert.alert('Validation Error', 'Trainer Name cannot be empty.');
       return;
     }
-    if (!backendUrl.trim()) {
-      Alert.alert('Validation Error', 'Backend URL cannot be empty.');
-      return;
-    }
 
     try {
       await settingsStore.updateSettings({
@@ -61,7 +57,7 @@ export default function SettingsScreen({ navigation }: Props) {
         leadTimeNormal,
         leadTimeConsecutive,
         autoStopSeconds,
-        backendUrl: backendUrl.trim(),
+        backendUrl, // keep backend URL saved under the hood
       });
 
       Alert.alert('Settings Saved', 'Profile settings updated successfully.', [
@@ -91,9 +87,14 @@ export default function SettingsScreen({ navigation }: Props) {
     );
   };
 
+  const insets = useSafeAreaInsets();
+  const isDark = settingsStore.settings.themeMode !== 'light';
+  const colors = isDark ? DarkThemeColors : LightThemeColors;
+  const styles = createStyles(colors, isDark);
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={Theme.colors.background} />
+    <View style={[styles.container, { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
       
       {/* Header */}
       <View style={styles.header}>
@@ -111,12 +112,12 @@ export default function SettingsScreen({ navigation }: Props) {
         
         {/* Profile Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Trainer Profile & Server</Text>
+          <Text style={styles.cardTitle}>Trainer Profile</Text>
           <Text style={styles.fieldLabel}>Trainer Name (Matches PDF search)</Text>
           <TextInput
             style={styles.textInput}
             placeholder="e.g. Harrison"
-            placeholderTextColor={Theme.colors.textMuted}
+            placeholderTextColor={colors.textMuted}
             value={trainerName}
             onChangeText={setTrainerName}
           />
@@ -124,21 +125,15 @@ export default function SettingsScreen({ navigation }: Props) {
             Tip: Keep it short (e.g. last name or unique identifier) to match PDF parser heuristics successfully.
           </Text>
 
-          <View style={{ height: 16 }} />
-
-          <Text style={styles.fieldLabel}>Backend Server URL</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="e.g. https://clazify.netlify.app"
-            placeholderTextColor={Theme.colors.textMuted}
-            value={backendUrl}
-            onChangeText={setBackendUrl}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          <Text style={styles.tipText}>
-            Defaults to production URL: https://clazify.netlify.app. For local development or debugging, you can change this to http://10.0.2.2:3000 (emulator) or your local host IP.
-          </Text>
+          {/* PDF Timetable Import trigger inside Trainer Profile Card */}
+          {settingsStore.settings.trainerName ? (
+            <TouchableOpacity 
+              style={styles.settingsImportButton}
+              onPress={() => navigation.navigate('PDFImport')}
+            >
+              <Text style={styles.settingsImportButtonText}>📅 Import Timetable PDF</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         {/* Lead times card */}
@@ -215,33 +210,6 @@ export default function SettingsScreen({ navigation }: Props) {
           </View>
         </View>
 
-        {/* Battery Optimization Settings */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Background Reliability</Text>
-          <Text style={styles.descText}>
-            OEM devices shut down alarms to save battery. Giving Clazify permission to ignore battery optimizations resolves this issues.
-          </Text>
-          
-          <View style={styles.statusRow}>
-            <Text style={styles.statusLabel}>STATUS:</Text>
-            <Text style={[
-              styles.statusValue,
-              settingsStore.settings.batteryOptimizationIgnored ? styles.statusGreen : styles.statusRed
-            ]}>
-              {settingsStore.settings.batteryOptimizationIgnored ? 'Whitelisted (Protected)' : 'Restricted (Not Protected)'}
-            </Text>
-          </View>
-
-          {!settingsStore.settings.batteryOptimizationIgnored && (
-            <TouchableOpacity 
-              style={styles.exemptionButton}
-              onPress={() => settingsStore.requestBatteryOptimizationExemption()}
-            >
-              <Text style={styles.exemptionButtonText}>Ignore Battery Optimization</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
         {/* Data Clearing Section */}
         <TouchableOpacity 
           style={styles.clearCard}
@@ -259,14 +227,14 @@ export default function SettingsScreen({ navigation }: Props) {
         </TouchableOpacity>
 
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof DarkThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -279,20 +247,20 @@ const styles = StyleSheet.create({
   backButton: {
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: Theme.colors.sm,
-    backgroundColor: Theme.colors.surfaceContainer,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceContainer,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
   },
   backText: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontWeight: '700',
     fontSize: 12,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: Theme.colors.text,
+    color: colors.text,
     fontFamily: 'Manrope',
   },
   scrollContent: {
@@ -300,40 +268,55 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   card: {
-    backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.colors.xl,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
     padding: 20,
     marginTop: 20,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
   },
   cardTitle: {
-    color: Theme.colors.secondary,
+    color: colors.secondary,
     fontWeight: '800',
     fontSize: 16,
     marginBottom: 16,
   },
   fieldLabel: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontWeight: '700',
     fontSize: 13,
     marginBottom: 8,
   },
   textInput: {
     height: 48,
-    backgroundColor: Theme.colors.surfaceContainer,
-    borderRadius: Theme.colors.md,
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     paddingHorizontal: 16,
-    color: '#ffffff',
+    color: colors.text,
     fontSize: 14,
   },
   tipText: {
-    color: Theme.colors.textMuted,
+    color: colors.textMuted,
     fontSize: 11,
     lineHeight: 16,
     marginTop: 10,
+  },
+  settingsImportButton: {
+    marginTop: 16,
+    height: 44,
+    backgroundColor: isDark ? 'rgba(0, 210, 255, 0.12)' : 'rgba(0, 123, 181, 0.12)',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  settingsImportButtonText: {
+    color: colors.secondary,
+    fontWeight: '700',
+    fontSize: 13,
   },
   settingRow: {
     flexDirection: 'row',
@@ -346,105 +329,64 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   settingLabel: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontSize: 14,
     fontWeight: '600',
   },
   settingDesc: {
-    color: Theme.colors.textMuted,
+    color: colors.textMuted,
     fontSize: 11,
     marginTop: 2,
   },
   stepper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Theme.colors.surfaceContainer,
-    borderRadius: Theme.colors.md,
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     padding: 4,
   },
   stepBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
   },
   stepBtnText: {
-    color: Theme.colors.secondary,
+    color: colors.secondary,
     fontSize: 16,
     fontWeight: '700',
   },
   stepVal: {
-    color: '#ffffff',
+    color: colors.text,
     fontWeight: '700',
     fontSize: 13,
     paddingHorizontal: 10,
     minWidth: 44,
     textAlign: 'center',
   },
-  descText: {
-    color: Theme.colors.textMuted,
-    fontSize: 13,
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  statusLabel: {
-    color: Theme.colors.text,
-    fontSize: 12,
-    fontWeight: '700',
-    marginRight: 8,
-  },
-  statusValue: {
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  statusGreen: {
-    color: Theme.colors.success,
-  },
-  statusRed: {
-    color: Theme.colors.error,
-  },
-  exemptionButton: {
-    backgroundColor: 'rgba(0, 210, 255, 0.1)',
-    borderRadius: Theme.colors.md,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 210, 255, 0.2)',
-  },
-  exemptionButtonText: {
-    color: Theme.colors.secondary,
-    fontWeight: '700',
-    fontSize: 13,
-  },
   clearCard: {
-    backgroundColor: 'rgba(239, 83, 80, 0.1)',
+    backgroundColor: isDark ? 'rgba(239, 83, 80, 0.08)' : 'rgba(186, 26, 26, 0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(239, 83, 80, 0.2)',
-    borderRadius: Theme.colors.xl,
+    borderColor: isDark ? 'rgba(239, 83, 80, 0.15)' : 'rgba(186, 26, 26, 0.15)',
+    borderRadius: 12,
     padding: 16,
     marginTop: 20,
     alignItems: 'center',
   },
   clearText: {
-    color: Theme.colors.error,
+    color: colors.error,
     fontWeight: '700',
     fontSize: 13,
   },
   saveButton: {
-    backgroundColor: Theme.colors.electricBlue,
-    borderRadius: Theme.colors.md,
+    backgroundColor: colors.electricBlue,
+    borderRadius: 8,
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',

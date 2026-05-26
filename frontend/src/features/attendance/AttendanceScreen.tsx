@@ -4,17 +4,19 @@ import {
   Text,
   View,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   ActivityIndicator,
   TextInput,
   Alert,
+  ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../app/navigation/RootNavigator';
-import { Theme } from '../../app/theme/theme';
+import { DarkThemeColors, LightThemeColors } from '../../app/theme/theme';
 import { useAttendanceStore } from './useAttendanceStore';
+import { useSettingsStore } from '../settings/useSettingsStore';
 import dayjs from 'dayjs';
 
 type AttendanceScreenRouteProp = RouteProp<RootStackParamList, 'Attendance'>;
@@ -28,6 +30,7 @@ interface Props {
 export default function AttendanceScreen({ route, navigation }: Props) {
   const { batch, groupName, subject } = route.params;
   const attendanceStore = useAttendanceStore();
+  const settingsStore = useSettingsStore();
 
   const [date, setDate] = useState<string>(dayjs().format('YYYY-MM-DD'));
   const [totalStudents, setTotalStudents] = useState<number>(60);
@@ -90,9 +93,14 @@ export default function AttendanceScreen({ route, navigation }: Props) {
 
   const absentCount = totalStudents - presentCount;
 
+  const insets = useSafeAreaInsets();
+  const isDark = settingsStore.settings.themeMode !== 'light';
+  const colors = isDark ? DarkThemeColors : LightThemeColors;
+  const styles = createStyles(colors, isDark);
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={Theme.colors.background} />
+    <View style={[styles.container, { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
       
       {/* Header */}
       <View style={styles.header}>
@@ -108,11 +116,11 @@ export default function AttendanceScreen({ route, navigation }: Props) {
 
       {loadingStrength ? (
         <View style={styles.loaderContainer}>
-          <ActivityIndicator color={Theme.colors.secondary} size="large" />
+          <ActivityIndicator color={colors.secondary} size="large" />
           <Text style={styles.loaderText}>Syncing class metadata...</Text>
         </View>
       ) : (
-        <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 32 }}>
+        <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
           {/* Class Metadata */}
           <View style={styles.classCard}>
             <Text style={styles.subjectText}>{subject}</Text>
@@ -173,13 +181,13 @@ export default function AttendanceScreen({ route, navigation }: Props) {
             <Text style={styles.summaryTitle}>Marking Summary</Text>
             <View style={styles.summaryGrid}>
               <View style={styles.summaryBox}>
-                <Text style={[styles.summaryNum, { color: Theme.colors.success }]}>
+                <Text style={[styles.summaryNum, { color: colors.success }]}>
                   {totalStudents > 0 ? `${Math.round((presentCount / totalStudents) * 100)}%` : '0%'}
                 </Text>
                 <Text style={styles.summaryLabel}>Presence Rate</Text>
               </View>
               <View style={styles.summaryBox}>
-                <Text style={[styles.summaryNum, { color: Theme.colors.error }]}>
+                <Text style={[styles.summaryNum, { color: colors.error }]}>
                   {totalStudents > 0 ? `${Math.round((absentCount / totalStudents) * 100)}%` : '0%'}
                 </Text>
                 <Text style={styles.summaryLabel}>Absence Rate</Text>
@@ -196,17 +204,14 @@ export default function AttendanceScreen({ route, navigation }: Props) {
           </TouchableOpacity>
         </ScrollView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
-// React Native ScrollView Mock fallback import for compile check
-import { ScrollView } from 'react-native';
-
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof DarkThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -219,20 +224,20 @@ const styles = StyleSheet.create({
   backButton: {
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: Theme.colors.sm,
-    backgroundColor: Theme.colors.surfaceContainer,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceContainer,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
   },
   backText: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontWeight: '700',
     fontSize: 12,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: Theme.colors.text,
+    color: colors.text,
     fontFamily: 'Manrope',
   },
   loaderContainer: {
@@ -241,7 +246,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loaderText: {
-    color: Theme.colors.textMuted,
+    color: colors.textMuted,
     marginTop: 12,
     fontSize: 14,
   },
@@ -250,39 +255,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   classCard: {
-    backgroundColor: 'rgba(0, 210, 255, 0.05)',
-    borderRadius: Theme.colors.xl,
-    padding: 24,
+    backgroundColor: isDark ? 'rgba(0, 210, 255, 0.05)' : 'rgba(0, 123, 181, 0.05)',
+    borderRadius: 12,
+    padding: 20,
     marginTop: 20,
     borderWidth: 1,
-    borderColor: 'rgba(0, 210, 255, 0.1)',
+    borderColor: isDark ? 'rgba(0, 210, 255, 0.1)' : 'rgba(0, 123, 181, 0.1)',
   },
   subjectText: {
     fontSize: 22,
     fontWeight: '800',
-    color: Theme.colors.text,
+    color: colors.text,
   },
   batchText: {
-    color: Theme.colors.textMuted,
+    color: colors.textMuted,
     fontSize: 14,
     marginTop: 4,
   },
   dateLabel: {
-    color: Theme.colors.secondary,
+    color: colors.secondary,
     fontSize: 13,
     fontWeight: '600',
     marginTop: 12,
   },
   controlCard: {
-    backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.colors.xl,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
     padding: 20,
     marginTop: 20,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
   },
   controlTitle: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontWeight: '800',
     fontSize: 16,
     marginBottom: 16,
@@ -294,24 +299,24 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   inputLabel: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontSize: 14,
     fontWeight: '600',
   },
   textInput: {
     width: 80,
     height: 40,
-    backgroundColor: Theme.colors.surfaceContainer,
-    borderRadius: Theme.colors.md,
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
-    color: '#ffffff',
+    borderColor: colors.border,
+    color: colors.text,
     textAlign: 'center',
     fontSize: 15,
     fontWeight: '700',
   },
   tickerLabel: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 10,
@@ -320,31 +325,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Theme.colors.surfaceContainer,
-    borderRadius: Theme.colors.lg,
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: 12,
     padding: 8,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
   },
   tickerButton: {
     width: 44,
     height: 44,
-    borderRadius: Theme.colors.md,
-    backgroundColor: Theme.colors.surface,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
   },
   tickerButtonText: {
-    color: Theme.colors.secondary,
+    color: colors.secondary,
     fontSize: 20,
     fontWeight: '700',
   },
   tickerValue: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#ffffff',
+    color: colors.text,
   },
   absentRow: {
     flexDirection: 'row',
@@ -353,28 +358,28 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
   },
   absentLabel: {
-    color: Theme.colors.textMuted,
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '600',
   },
   absentValue: {
     fontSize: 18,
     fontWeight: '800',
-    color: Theme.colors.error,
+    color: colors.error,
   },
   summaryCard: {
-    backgroundColor: Theme.colors.surfaceVariant,
-    borderRadius: Theme.colors.xl,
+    backgroundColor: colors.surfaceVariant,
+    borderRadius: 12,
     padding: 20,
     marginTop: 20,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
   },
   summaryTitle: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontWeight: '800',
     fontSize: 16,
     marginBottom: 16,
@@ -385,25 +390,25 @@ const styles = StyleSheet.create({
   summaryBox: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: Theme.colors.surface,
-    borderRadius: Theme.colors.md,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
     paddingVertical: 16,
     marginRight: 10,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
   },
   summaryNum: {
     fontSize: 20,
     fontWeight: '800',
   },
   summaryLabel: {
-    color: Theme.colors.textMuted,
+    color: colors.textMuted,
     fontSize: 11,
     marginTop: 4,
   },
   submitButton: {
-    backgroundColor: Theme.colors.electricBlue,
-    borderRadius: Theme.colors.md,
+    backgroundColor: colors.electricBlue,
+    borderRadius: 8,
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',

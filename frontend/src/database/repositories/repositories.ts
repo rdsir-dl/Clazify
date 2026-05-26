@@ -11,6 +11,9 @@ export interface TimetableEntry {
   endTime: string; // 'HH:mm'
   lectureNumber?: number;
   alarmEnabled: boolean;
+  totalStudents?: number;
+  isExtra?: boolean;
+  extraDate?: string;
 }
 
 export interface AttendanceRecord {
@@ -31,6 +34,7 @@ export interface AppSettings {
   autoStopSeconds: number;
   batteryOptimizationIgnored: boolean;
   backendUrl: string;
+  themeMode: 'light' | 'dark';
   lastSyncAt?: string;
 }
 
@@ -47,12 +51,12 @@ export class TimetableRepository {
   static async saveEntries(entries: Omit<TimetableEntry, 'alarmEnabled'>[]): Promise<void> {
     const db = await getDBConnection();
     await db.transaction((tx: any) => {
-      tx.executeSql('DELETE FROM timetable_entries;');
+      tx.executeSql('DELETE FROM timetable_entries WHERE is_extra = 0 OR is_extra IS NULL;');
       const now = new Date().toISOString();
       entries.forEach(entry => {
         tx.executeSql(
-          `INSERT INTO timetable_entries (id, subject, room_code, batch, group_name, day_of_week, start_time, end_time, lecture_number, alarm_enabled, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?);`,
+          `INSERT INTO timetable_entries (id, subject, room_code, batch, group_name, day_of_week, start_time, end_time, lecture_number, alarm_enabled, total_students, is_extra, extra_date, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, NULL, ?, ?);`,
           [
             entry.id,
             entry.subject,
@@ -63,6 +67,7 @@ export class TimetableRepository {
             entry.startTime,
             entry.endTime,
             entry.lectureNumber || null,
+            entry.totalStudents || 60,
             now,
             now,
           ]
@@ -89,6 +94,9 @@ export class TimetableRepository {
         endTime: row.end_time,
         lectureNumber: row.lecture_number || undefined,
         alarmEnabled: row.alarm_enabled === 1,
+        totalStudents: row.total_students || 60,
+        isExtra: row.is_extra === 1,
+        extraDate: row.extra_date || undefined,
       });
     }
     return entries;
@@ -102,25 +110,85 @@ export class TimetableRepository {
       id,
     ]);
   }
+
+  static async updateTotalStudents(subject: string, batch: string, groupName: string | undefined, totalStudents: number): Promise<void> {
+    const db = await getDBConnection();
+    await db.executeSql(
+      `UPDATE timetable_entries 
+       SET total_students = ?, updated_at = ?
+       WHERE subject = ? AND batch = ? AND (group_name = ? OR (group_name IS NULL AND ? IS NULL));`,
+      [totalStudents, new Date().toISOString(), subject, batch, groupName || null, groupName || null]
+    );
+  }
+
+  static async addExtraLecture(entry: TimetableEntry): Promise<void> {
+    const db = await getDBConnection();
+    const now = new Date().toISOString();
+    await db.executeSql(
+      `INSERT INTO timetable_entries (id, subject, room_code, batch, group_name, day_of_week, start_time, end_time, lecture_number, alarm_enabled, total_students, is_extra, extra_date, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 1, ?, ?, ?);`,
+      [
+        entry.id,
+        entry.subject,
+        entry.roomCode,
+        entry.batch,
+        entry.groupName || null,
+        entry.dayOfWeek,
+        entry.startTime,
+        entry.endTime,
+        entry.lectureNumber || null,
+        entry.totalStudents || 60,
+        entry.extraDate || null,
+        now,
+        now,
+      ]
+    );
+  }
 }
 
 export class AttendanceRepository {
   static async addRecord(record: AttendanceRecord): Promise<void> {
     const db = await getDBConnection();
-    await db.executeSql(
-      `INSERT INTO attendance_records (id, batch, group_name, subject, date, present_count, total_count, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
-      [
-        record.id,
-        record.batch,
-        record.groupName || null,
-        record.subject,
-        record.date,
-        record.presentCount,
-        record.totalCount,
-        record.createdAt,
-      ]
-    );
+    // Check if record already exists for the same batch, subject, date, and group
+    const checkQuery = `
+      SELECT id FROM attendance_records 
+      WHERE batch = ? AND subject = ? AND date = ? 
+      AND (group_name = ? OR (group_name IS NULL AND ? IS NULL));
+    `;
+    const results = await db.executeSql(checkQuery, [
+      record.batch,
+      record.subject,
+      record.date,
+      record.groupName || null,
+      record.groupName || null
+    ]);
+
+    if (results[0].rows.length > 0) {
+      // Update existing record
+      const existingId = results[0].rows.item(0).id;
+      await db.executeSql(
+        `UPDATE attendance_records 
+         SET present_count = ?, total_count = ? 
+         WHERE id = ?;`,
+        [record.presentCount, record.totalCount, existingId]
+      );
+    } else {
+      // Insert new record
+      await db.executeSql(
+        `INSERT INTO attendance_records (id, batch, group_name, subject, date, present_count, total_count, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+        [
+          record.id,
+          record.batch,
+          record.groupName || null,
+          record.subject,
+          record.date,
+          record.presentCount,
+          record.totalCount,
+          record.createdAt,
+        ]
+      );
+    }
   }
 
   static async getRecords(): Promise<AttendanceRecord[]> {
@@ -158,6 +226,7 @@ export class SettingsRepository {
         autoStopSeconds: row.auto_stop_seconds,
         batteryOptimizationIgnored: row.battery_optimization_ignored === 1,
         backendUrl: row.backend_url || 'https://clazify.netlify.app',
+        themeMode: (row.theme_mode as 'light' | 'dark') || 'dark',
         lastSyncAt: row.last_sync_at || undefined,
       };
     }
@@ -168,6 +237,7 @@ export class SettingsRepository {
       autoStopSeconds: 30,
       batteryOptimizationIgnored: false,
       backendUrl: 'https://clazify.netlify.app',
+      themeMode: 'dark',
     };
   }
 
@@ -177,7 +247,7 @@ export class SettingsRepository {
     const updated = { ...current, ...settings };
     await db.executeSql(
       `UPDATE app_settings 
-       SET trainer_name = ?, lead_time_normal = ?, lead_time_consecutive = ?, auto_stop_seconds = ?, battery_optimization_ignored = ?, backend_url = ?, last_sync_at = ?
+       SET trainer_name = ?, lead_time_normal = ?, lead_time_consecutive = ?, auto_stop_seconds = ?, battery_optimization_ignored = ?, backend_url = ?, theme_mode = ?, last_sync_at = ?
        WHERE id = 1;`,
       [
         updated.trainerName,
@@ -186,6 +256,7 @@ export class SettingsRepository {
         updated.autoStopSeconds,
         updated.batteryOptimizationIgnored ? 1 : 0,
         updated.backendUrl,
+        updated.themeMode,
         updated.lastSyncAt || null,
       ]
     );

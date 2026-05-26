@@ -63,7 +63,8 @@ export async function initDatabase(): Promise<void> {
       auto_stop_seconds INTEGER DEFAULT 30,
       battery_optimization_ignored INTEGER DEFAULT 0,
       last_sync_at TEXT,
-      backend_url TEXT DEFAULT 'https://clazify.netlify.app'
+      backend_url TEXT DEFAULT 'https://clazify.netlify.app',
+      theme_mode TEXT DEFAULT 'dark'
     );
   `);
   
@@ -72,13 +73,38 @@ export async function initDatabase(): Promise<void> {
   } catch (e) {
     // Column might already exist, ignore error
   }
+
+  try {
+    await db.executeSql("ALTER TABLE app_settings ADD COLUMN theme_mode TEXT DEFAULT 'dark';");
+  } catch (e) {
+    // Column might already exist, ignore error
+  }
+
+  // Migration: Add total_students, is_extra, and extra_date to timetable_entries
+  try {
+    await db.executeSql("ALTER TABLE timetable_entries ADD COLUMN total_students INTEGER DEFAULT 60;");
+  } catch (e) {
+    // ignore
+  }
+
+  try {
+    await db.executeSql("ALTER TABLE timetable_entries ADD COLUMN is_extra INTEGER DEFAULT 0;");
+  } catch (e) {
+    // ignore
+  }
+
+  try {
+    await db.executeSql("ALTER TABLE timetable_entries ADD COLUMN extra_date TEXT;");
+  } catch (e) {
+    // ignore
+  }
   
   // Seed default app_settings if not exists
   const settingsCountResult = await db.executeSql('SELECT COUNT(*) as count FROM app_settings;');
   if (settingsCountResult[0].rows.item(0).count === 0) {
     await db.executeSql(`
-      INSERT INTO app_settings (id, trainer_name, lead_time_normal, lead_time_consecutive, auto_stop_seconds, battery_optimization_ignored, backend_url)
-      VALUES (1, '', 10, 5, 30, 0, 'https://clazify.netlify.app');
+      INSERT INTO app_settings (id, trainer_name, lead_time_normal, lead_time_consecutive, auto_stop_seconds, battery_optimization_ignored, backend_url, theme_mode)
+      VALUES (1, '', 10, 5, 30, 0, 'https://clazify.netlify.app', 'dark');
     `);
   }
 

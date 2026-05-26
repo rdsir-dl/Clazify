@@ -73,7 +73,7 @@ app.get('/api/v1/student-strength', async (req: Request, res: Response): Promise
     return res.status(400).json({ error: 'Missing batch parameter' });
   }
 
-  let totalStudents = 60; // Safe default fallback
+  let totalStudents = 0; // Default if not found in sheets/entered
   let found = false;
 
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
@@ -92,30 +92,6 @@ app.get('/api/v1/student-strength', async (req: Request, res: Response): Promise
       totalStudents = matched.totalStudents;
       found = true;
       console.log(`MATCHED SHEETS RECORD: ${batch} ${group || ''} -> ${totalStudents}`);
-    }
-  }
-
-  if (!found) {
-    // Pre-configured mock data fallback if sheet not set or record not found
-    const mockDatabase: Array<{ batch: string; group?: string; subject?: string; strength: number }> = [
-      { batch: 'BE-CSE-5D', group: 'Group 1', subject: 'Java', strength: 58 },
-      { batch: 'BE-CSE-5D', group: 'Group 2', subject: 'Java', strength: 55 },
-      { batch: 'BE-CSE-5D', group: 'Group 1', subject: 'Database Systems', strength: 58 },
-      { batch: 'BE-CSE-5D', group: 'Group 2', subject: 'Database Systems', strength: 55 },
-      { batch: 'BCA-3A', group: 'Group 1', strength: 40 },
-      { batch: 'BCA-3A', group: 'Group 2', strength: 42 },
-    ];
-
-    const matched = mockDatabase.find((item) => {
-      const batchMatch = item.batch.toLowerCase() === batch.toLowerCase();
-      const groupMatch = !group || !item.group || item.group.toLowerCase() === group.toLowerCase();
-      const subjectMatch = !subject || !item.subject || item.subject.toLowerCase() === subject.toLowerCase();
-      return batchMatch && groupMatch && subjectMatch;
-    });
-
-    if (matched) {
-      totalStudents = matched.strength;
-      console.log(`MATCHED MOCK RECORD: ${batch} ${group || ''} -> ${totalStudents}`);
     }
   }
 

@@ -4,15 +4,15 @@ import {
   Text,
   View,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DocumentPicker, { types } from 'react-native-document-picker';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../app/navigation/RootNavigator';
-import { Theme } from '../../app/theme/theme';
+import { DarkThemeColors, LightThemeColors } from '../../app/theme/theme';
 import { useTimetableStore } from './useTimetableStore';
 import { useSettingsStore } from '../settings/useSettingsStore';
 
@@ -80,9 +80,14 @@ export default function PDFImportScreen({ navigation }: Props) {
     }
   };
 
+  const insets = useSafeAreaInsets();
+  const isDark = settingsStore.settings.themeMode !== 'light';
+  const colors = isDark ? DarkThemeColors : LightThemeColors;
+  const styles = createStyles(colors, isDark);
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={Theme.colors.background} />
+    <View style={[styles.container, { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
       
       {/* Header */}
       <View style={styles.header}>
@@ -149,14 +154,14 @@ export default function PDFImportScreen({ navigation }: Props) {
           </TouchableOpacity>
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: typeof DarkThemeColors, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -169,20 +174,20 @@ const styles = StyleSheet.create({
   backButton: {
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: Theme.colors.sm,
-    backgroundColor: Theme.colors.surfaceContainer,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceContainer,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
   },
   backText: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontWeight: '700',
     fontSize: 12,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: Theme.colors.text,
+    color: colors.text,
     fontFamily: 'Manrope',
   },
   content: {
@@ -193,81 +198,81 @@ const styles = StyleSheet.create({
   instructionTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: Theme.colors.text,
+    color: colors.text,
     marginBottom: 8,
   },
   instructionDesc: {
     fontSize: 14,
-    color: Theme.colors.textMuted,
+    color: colors.textMuted,
     lineHeight: 22,
     marginBottom: 20,
   },
   trainerBadge: {
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     padding: 16,
-    borderRadius: Theme.colors.md,
+    borderRadius: 8,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
   },
   trainerLabel: {
-    color: Theme.colors.textMuted,
+    color: colors.textMuted,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
   trainerName: {
-    color: Theme.colors.secondary,
+    color: colors.secondary,
     fontSize: 16,
     fontWeight: '800',
     marginTop: 4,
   },
   pickerArea: {
     height: 180,
-    borderRadius: Theme.colors.xl,
+    borderRadius: 12,
     borderWidth: 2,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderStyle: 'dashed',
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
   },
   pickerAreaSelected: {
-    borderColor: Theme.colors.secondary,
+    borderColor: colors.secondary,
     borderStyle: 'solid',
-    backgroundColor: 'rgba(0, 210, 255, 0.03)',
+    backgroundColor: isDark ? 'rgba(0, 210, 255, 0.03)' : 'rgba(0, 123, 181, 0.03)',
   },
   pickerIcon: {
     fontSize: 48,
     marginBottom: 12,
   },
   pickerText: {
-    color: Theme.colors.text,
+    color: colors.text,
     fontWeight: '700',
     fontSize: 15,
   },
   fileSize: {
-    color: Theme.colors.textMuted,
+    color: colors.textMuted,
     fontSize: 12,
     marginTop: 6,
   },
   errorContainer: {
     padding: 16,
-    borderRadius: Theme.colors.md,
-    backgroundColor: 'rgba(239, 83, 80, 0.1)',
+    borderRadius: 8,
+    backgroundColor: isDark ? 'rgba(239, 83, 80, 0.1)' : 'rgba(186, 26, 26, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(239, 83, 80, 0.2)',
+    borderColor: isDark ? 'rgba(239, 83, 80, 0.2)' : 'rgba(186, 26, 26, 0.2)',
     marginBottom: 24,
   },
   errorText: {
-    color: Theme.colors.error,
+    color: colors.error,
     fontSize: 13,
     lineHeight: 20,
   },
   submitButton: {
-    backgroundColor: Theme.colors.electricBlue,
-    borderRadius: Theme.colors.md,
+    backgroundColor: colors.electricBlue,
+    borderRadius: 8,
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',

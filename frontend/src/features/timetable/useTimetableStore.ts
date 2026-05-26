@@ -13,6 +13,8 @@ interface TimetableState {
   toggleAlarmEnabled: (entryId: string) => Promise<void>;
   uploadTimetablePdf: (fileUri: string, fileName: string) => Promise<boolean>;
   clearTimetable: () => Promise<void>;
+  updateTotalStudents: (subject: string, batch: string, groupName: string | undefined, totalStudents: number) => Promise<void>;
+  addExtraLecture: (entry: Omit<TimetableEntry, 'alarmEnabled'>) => Promise<boolean>;
 }
 
 export const useTimetableStore = create<TimetableState>((set, get) => ({
@@ -136,6 +138,38 @@ export const useTimetableStore = create<TimetableState>((set, get) => ({
     } catch (e) {
       console.error(e);
       set({ loading: false });
+    }
+  },
+
+  updateTotalStudents: async (subject, batch, groupName, totalStudents) => {
+    try {
+      await TimetableRepository.updateTotalStudents(subject, batch, groupName, totalStudents);
+      await get().loadTimetable();
+    } catch (e) {
+      console.error('Failed to update total students:', e);
+    }
+  },
+
+  addExtraLecture: async (lecture) => {
+    set({ loading: true });
+    try {
+      const newEntry: TimetableEntry = {
+        ...lecture,
+        alarmEnabled: true,
+      };
+      await TimetableRepository.addExtraLecture(newEntry);
+      await get().loadTimetable();
+      
+      // Schedule alarm for the extra lecture
+      const alarmStore = useAlarmStore.getState();
+      await alarmStore.scheduleAlarmForEntry(newEntry, get().entries);
+      
+      set({ loading: false });
+      return true;
+    } catch (e) {
+      console.error('Failed to add extra lecture:', e);
+      set({ loading: false });
+      return false;
     }
   },
 }));

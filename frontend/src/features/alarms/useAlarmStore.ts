@@ -55,7 +55,13 @@ export const useAlarmStore = create<AlarmState>((set, get) => ({
       const leadTime = isConsecutive ? settings.leadTimeConsecutive : settings.leadTimeNormal;
 
       // 2. Compute trigger timestamp
-      const triggerTimestamp = calculateNextTriggerTime(entry.dayOfWeek, entry.startTime, leadTime);
+      const triggerTimestamp = calculateNextTriggerTime(entry.dayOfWeek, entry.startTime, leadTime, entry.extraDate);
+
+      // If it is an extra lecture and the alarm time has already passed, skip scheduling
+      if (entry.isExtra && triggerTimestamp < Date.now()) {
+        console.log('Skipping alarm for extra lecture in the past:', entry.id);
+        return;
+      }
 
       // 3. Cancel existing alarm first to prevent duplicates
       const alarmId = `alarm_${entry.id}`;
@@ -137,13 +143,25 @@ function checkIfConsecutive(target: TimetableEntry, allEntries: TimetableEntry[]
   });
 }
 
-// Calculate upcoming timestamp in ms representing: DayOfWeek at (StartTime - LeadTime)
-function calculateNextTriggerTime(dayOfWeek: string, startTime: string, leadTimeMinutes: number): number {
+// Calculate upcoming timestamp in ms representing: DayOfWeek at (StartTime - LeadTime) or specific extraDate
+function calculateNextTriggerTime(dayOfWeek: string, startTime: string, leadTimeMinutes: number, extraDate?: string): number {
+  const [startHour, startMin] = startTime.split(':').map(Number);
+
+  if (extraDate) {
+    // Parse the extraDate 'YYYY-MM-DD'
+    const triggerDate = dayjs(extraDate)
+      .hour(startHour)
+      .minute(startMin)
+      .second(0)
+      .millisecond(0)
+      .subtract(leadTimeMinutes, 'minute');
+    return triggerDate.valueOf();
+  }
+
   const daysMap: { [key: string]: number } = {
     Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6
   };
   const targetDayNum = daysMap[dayOfWeek];
-  const [startHour, startMin] = startTime.split(':').map(Number);
 
   let triggerDate = dayjs()
     .hour(startHour)
